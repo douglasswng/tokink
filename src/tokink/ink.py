@@ -42,7 +42,7 @@ class Ink[T: (int, float)](BaseModel):
         return Ink[int](strokes=strokes)
 
     def plot(self) -> None:
-        _, ax = plt.subplots(figsize=(12, 8))
+        ax = plt.subplots(figsize=(12, 8))[1]
         ax.set_aspect("equal", adjustable="box")
         ax.invert_yaxis()
 
@@ -54,8 +54,3 @@ class Ink[T: (int, float)](BaseModel):
                 ax.plot(x, y, "-k", linewidth=1.5)
 
         plt.show()
-
-
-if __name__ == "__main__":
-    ink = Ink.load_test()
-    ink.plot()

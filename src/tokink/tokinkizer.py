@@ -29,8 +29,7 @@ class Tokinkizer:
 
     def __init__(self, vocab: dict[str, int], merges: list[tuple[str, str]]):
         self._vocab = vocab
-        self._merges = merges
-
+        self._reverse_vocab = {v: k for k, v in vocab.items()}
         self._bpe = self._init_bpe(vocab, merges)
 
     @classmethod
@@ -44,18 +43,22 @@ class Tokinkizer:
         with open(vocab_path, "r") as f:
             vocab = json.load(f)
         with open(merges_path, "r") as f:
-            merges = [
-                (parts[0], parts[1])
-                for line in f
-                if len(parts := line.strip().split()) == 2
-            ]
+            merges = []
+            for line in f:
+                if not len(parts := line.strip().split()) == 2:
+                    raise ValueError(
+                        f"Invalid merge line: {line}, "
+                        "Expected exactly 2 whitespace-separated tokens."
+                    )
+
+                merges.append((parts[0], parts[1]))
         return cls(vocab=vocab, merges=merges)
 
     def _init_bpe(self, vocab: dict[str, int], merges: list[tuple[str, str]]) -> BPE:
         hf_vocab = {
             self._strip_token(token): id
             for token, id in vocab.items()
-            if token not in [self.BOS, self.EOS, self.UP, self.DOWN]
+            if self._is_move_token(token)
         }
         hf_merges = [
             (self._strip_token(merge[0]), self._strip_token(merge[1]))
@@ -69,6 +72,9 @@ class Tokinkizer:
                 f"Token must start with '[' and end with ']', got: {token}"
             )
         return token[1:-1]
+
+    def _wrap_token(self, token: str) -> str:
+        return f"[{token}]"
 
     def _bres_line(self, x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
         if not all(isinstance(v, int) for v in (x0, y0, x1, y1)):
@@ -105,7 +111,8 @@ class Tokinkizer:
         return tokens
 
     def _merge_move_tokens(self, tokens: list[str]) -> list[str]:
-        return tokens
+        hf_tokens = self._bpe.tokenize("".join(tokens))
+        return [self._wrap_token(token.value) for token in hf_tokens]
 
     def _merge_tokens(self, tokens: list[str]) -> list[str]:
         merged_tokens = []
@@ -158,7 +165,6 @@ class Tokinkizer:
                 UserWarning,
                 stacklevel=2,
             )
-            pass
 
         try:
             end = next(i for i, t in enumerate(tokens) if t == self.EOS)
@@ -169,7 +175,6 @@ class Tokinkizer:
                 UserWarning,
                 stacklevel=2,
             )
-            pass
 
         curr_state = None
         curr_point = Point(x=0, y=0)
@@ -201,12 +206,21 @@ class Tokinkizer:
                         curr_stroke.points.extend(points)
         return ink
 
+    def token_to_id(self, token: str) -> int:
+        if token not in self._vocab:
+            raise ValueError(f"Token '{token}' not found in vocabulary")
+        return self._vocab[token]
+
+    def id_to_token(self, id: int) -> str:
+        if id not in self._reverse_vocab:
+            raise ValueError(f"ID {id} not found in vocabulary")
+        return self._reverse_vocab[id]
+
     def convert_tokens_to_ids(self, tokens: list[str]) -> list[int]:
-        return [self._vocab[token] for token in tokens]
+        return [self.token_to_id(token) for token in tokens]
 
     def convert_ids_to_tokens(self, ids: list[int]) -> list[str]:
-        reverse_vocab = {v: k for k, v in self._vocab.items()}
-        return [reverse_vocab[id] for id in ids]
+        return [self.id_to_token(id) for id in ids]
 
     def encode(self, ink: Ink[int]) -> list[int]:
         tokens = self.tokenize(ink)
@@ -215,15 +229,3 @@ class Tokinkizer:
     def decode(self, ids: list[int]) -> Ink[int]:
         tokens = self.convert_ids_to_tokens(ids)
         return self.detokenize(tokens)
-
-
-if __name__ == "__main__":
-    ink = Ink.example()
-    tokinkizer = Tokinkizer.from_pretrained()
-
-    tokens = tokinkizer.tokenize(ink)
-    for token in tokens:
-        print(token)
-    print(len(tokens))
-    ink = tokinkizer.detokenize(tokens)
-    ink.plot()
