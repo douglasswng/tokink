@@ -38,9 +38,13 @@ class Tokinkizer:
 
     @classmethod
     @lru_cache(maxsize=1)
-    def from_pretrained(
+    def _from_pretrained_cached(
         cls, path: Path | str | None = None, *, vocab_size: int | None = None
     ) -> Self:
+        """
+        Load the pretrained tokinkizer from the given path.
+        LRU cache interferes with the type hinting.
+        """
         if path is None:
             path = Path(__file__).parent / "data"
 
@@ -70,6 +74,24 @@ class Tokinkizer:
             vocab = {k: v for i, (k, v) in enumerate(vocab.items()) if i < vocab_size}
             merges = merges[:-reduce_count]
         return cls(vocab=vocab, merges=merges)
+
+    @classmethod
+    def from_pretrained(
+        cls, path: Path | str | None = None, *, vocab_size: int | None = 32_000
+    ) -> Self:
+        """
+        Load a pretrained tokinkizer from the given path.
+
+        Args:
+            path: Path to the directory containing vocab.json and merges.txt.
+                  If None, uses the default data directory.
+            vocab_size: Optional target vocabulary size. If provided, the vocab
+                       will be truncated to this size.
+
+        Returns:
+            A Tokinkizer instance loaded from the pretrained files.
+        """
+        return cls._from_pretrained_cached(path, vocab_size=vocab_size)
 
     def _init_bpe(self, vocab: dict[str, int], merges: list[tuple[str, str]]) -> BPE:
         hf_vocab = {
@@ -159,7 +181,7 @@ class Tokinkizer:
         points = []
         curr_point = Point(x=0, y=0)
         for coord in coords:
-            curr_point += Point(x=coord[0], y=coord[1])
+            curr_point += Point.from_coords(coord)
             points.append(curr_point)
         return points
 

@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import matplotlib
 import pytest
 
 from tokink.ink import Ink, Point, Stroke
@@ -117,3 +120,143 @@ class TestInk:
         )
         assert ink.strokes[0].points[0].x == 1.5
         assert ink.strokes[0].points[1].y == 4.2
+
+    def test_point_multiplication(self):
+        """Test Point multiplication by scalar"""
+        p = Point(x=2, y=3)
+        p_scaled = p * 2.5
+        assert p_scaled.x == 5.0
+        assert p_scaled.y == 7.5
+
+    def test_point_multiplication_int(self):
+        """Test Point multiplication by integer"""
+        p = Point(x=4.5, y=6.5)
+        p_scaled = p * 2
+        assert p_scaled.x == 9.0
+        assert p_scaled.y == 13.0
+
+    def test_point_to_int(self):
+        """Test Point conversion to integer coordinates with traditional rounding"""
+        p = Point(x=1.4, y=2.6)
+        p_int = p.to_int()
+        assert p_int.x == 1  # 1.4 rounds down
+        assert p_int.y == 3  # 2.6 rounds up
+        assert isinstance(p_int.x, int)
+        assert isinstance(p_int.y, int)
+
+    def test_point_to_int_half_values(self):
+        """Test Point conversion with .5 values (traditional rounding, not banker's)"""
+        # Traditional rounding: 0.5 always rounds up
+        p1 = Point(x=0.5, y=1.5)
+        p1_int = p1.to_int()
+        assert p1_int.x == 1  # 0.5 → 1 (not 0 like banker's rounding)
+        assert p1_int.y == 2  # 1.5 → 2
+
+        p2 = Point(x=2.5, y=3.5)
+        p2_int = p2.to_int()
+        assert p2_int.x == 3  # 2.5 → 3 (not 2 like banker's rounding)
+        assert p2_int.y == 4  # 3.5 → 4
+
+    def test_point_to_int_negative(self):
+        """Test Point conversion to int with negative values"""
+        p = Point(x=-1.6, y=-2.4)
+        p_int = p.to_int()
+        assert p_int.x == -2
+        assert p_int.y == -2
+
+    def test_stroke_multiplication(self):
+        """Test Stroke multiplication by scalar"""
+        s = Stroke.from_coords([(1, 2), (3, 4)])
+        s_scaled = s * 2
+        assert s_scaled.points[0].x == 2
+        assert s_scaled.points[0].y == 4
+        assert s_scaled.points[1].x == 6
+        assert s_scaled.points[1].y == 8
+
+    def test_stroke_multiplication_float(self):
+        """Test Stroke multiplication by float"""
+        s = Stroke.from_coords([(2, 4), (6, 8)])
+        s_scaled = s * 0.5
+        assert s_scaled.points[0].x == 1.0
+        assert s_scaled.points[0].y == 2.0
+        assert s_scaled.points[1].x == 3.0
+        assert s_scaled.points[1].y == 4.0
+
+    def test_stroke_to_int(self):
+        """Test Stroke conversion to integer coordinates"""
+        s = Stroke.from_coords([(1.4, 2.6), (3.2, 4.8)])
+        s_int = s.to_int()
+        assert s_int.points[0].x == 1
+        assert s_int.points[0].y == 3
+        assert s_int.points[1].x == 3
+        assert s_int.points[1].y == 5
+        assert all(isinstance(p.x, int) and isinstance(p.y, int) for p in s_int.points)
+
+    def test_ink_multiplication(self):
+        """Test Ink multiplication by scalar"""
+        ink = Ink.from_coords([[(1, 2), (3, 4)], [(5, 6)]])
+        ink_scaled = ink * 3
+        assert ink_scaled.strokes[0].points[0].x == 3
+        assert ink_scaled.strokes[0].points[0].y == 6
+        assert ink_scaled.strokes[0].points[1].x == 9
+        assert ink_scaled.strokes[0].points[1].y == 12
+        assert ink_scaled.strokes[1].points[0].x == 15
+        assert ink_scaled.strokes[1].points[0].y == 18
+
+    def test_ink_multiplication_float(self):
+        """Test Ink multiplication by float"""
+        ink = Ink.from_coords([[(10, 20)]])
+        ink_scaled = ink * 0.1
+        assert ink_scaled.strokes[0].points[0].x == 1.0
+        assert ink_scaled.strokes[0].points[0].y == 2.0
+
+    def test_ink_to_int(self):
+        """Test Ink conversion to integer coordinates with traditional rounding"""
+        ink = Ink.from_coords([[(1.4, 2.6), (3.2, 4.8)], [(5.5, 6.5)]])
+        ink_int = ink.to_int()
+        assert ink_int.strokes[0].points[0].x == 1  # 1.4 rounds down
+        assert ink_int.strokes[0].points[0].y == 3  # 2.6 rounds up
+        assert ink_int.strokes[0].points[1].x == 3  # 3.2 rounds down
+        assert ink_int.strokes[0].points[1].y == 5  # 4.8 rounds up
+        assert ink_int.strokes[1].points[0].x == 6  # 5.5 rounds up (traditional)
+        assert ink_int.strokes[1].points[0].y == 7  # 6.5 rounds up (traditional)
+        # Verify all coordinates are integers
+        for stroke in ink_int.strokes:
+            for point in stroke.points:
+                assert isinstance(point.x, int)
+                assert isinstance(point.y, int)
+
+    def test_ink_len(self):
+        """Test Ink length returns total number of points"""
+        ink = Ink.from_coords([[(0, 0), (1, 1), (2, 2)], [(5, 5), (6, 6)]])
+        assert len(ink) == 5
+
+    def test_ink_len_empty(self):
+        """Test Ink length with no strokes"""
+        ink = Ink(strokes=[])
+        assert len(ink) == 0
+
+    def test_ink_save_with_path(self, tmp_path):
+        """Test saving ink to a specified path"""
+        matplotlib.use("Agg")  # Use non-interactive backend
+
+        ink = Ink.from_coords([[(0, 0), (10, 10)]])
+        save_path = tmp_path / "test_ink.png"
+        ink.save(save_path)
+        assert save_path.exists()
+
+    def test_ink_save_default_path(self):
+        """Test saving ink with auto-generated filename"""
+        matplotlib.use("Agg")  # Use non-interactive backend
+
+        ink = Ink.from_coords([[(0, 0), (10, 10)]])
+        ink.save()
+
+        # Check that a file was created in the package directory
+        package_dir = Path(__file__).parent.parent / "src" / "tokink"
+        png_files = list(package_dir.glob("*.png"))
+        assert len(png_files) > 0
+
+        # Clean up the generated file
+        for png_file in png_files:
+            png_file.unlink()

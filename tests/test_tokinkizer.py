@@ -18,10 +18,7 @@ class TestTokinkizer:
         to include (3,0) by the Bresenham line algorithm.
         """
         raw_strokes = [[(0, 0), (1, 0)], [(2, 1), (4, -1)], [(5, 5)]]
-        strokes: list[Stroke[int]] = [
-            Stroke[int](points=[Point[int](x=x, y=y) for x, y in stroke]) for stroke in raw_strokes
-        ]
-        return Ink[int](strokes=strokes)
+        return Ink.from_coords(raw_strokes)
 
     def test_load_pretrained(self, tokinkizer):
         """Test loading pretrained tokinkizer."""
@@ -160,3 +157,106 @@ class TestTokinkizer:
         """Test that requesting vocab size larger than trained raises ValueError."""
         with pytest.raises(ValueError):
             Tokinkizer.from_pretrained(vocab_size=999999)
+
+    def test_convert_tokens_to_ids(self, tokinkizer):
+        """Test converting list of tokens to IDs."""
+        tokens = ["[BOS]", "[→]", "[EOS]"]
+        ids = tokinkizer.convert_tokens_to_ids(tokens)
+        assert len(ids) == 3
+        assert ids[0] == 1  # BOS
+        assert ids[2] == 2  # EOS
+        assert all(isinstance(id, int) for id in ids)
+
+    def test_convert_ids_to_tokens(self, tokinkizer):
+        """Test converting list of IDs to tokens."""
+        ids = [1, 7, 2]  # BOS, some token, EOS
+        tokens = tokinkizer.convert_ids_to_tokens(ids)
+        assert len(tokens) == 3
+        assert tokens[0] == "[BOS]"
+        assert tokens[2] == "[EOS]"
+        assert all(isinstance(token, str) for token in tokens)
+
+    def test_convert_tokens_ids_roundtrip(self, tokinkizer):
+        """Test bidirectional conversion between tokens and IDs."""
+        original_tokens = ["[BOS]", "[→]", "[↑]", "[DOWN]", "[UP]", "[EOS]"]
+        ids = tokinkizer.convert_tokens_to_ids(original_tokens)
+        recovered_tokens = tokinkizer.convert_ids_to_tokens(ids)
+        assert original_tokens == recovered_tokens
+
+    def test_encode_method(self, tokinkizer, simple_ink):
+        """Test encode method produces list of integers."""
+        ids = tokinkizer.encode(simple_ink)
+        assert isinstance(ids, list)
+        assert all(isinstance(id, int) for id in ids)
+        assert len(ids) > 0
+        assert ids[0] == 1  # Should start with BOS token ID
+        assert ids[-1] == 2  # Should end with EOS token ID
+
+    def test_decode_method(self, tokinkizer):
+        """Test decode method produces Ink object."""
+        ids = [1, 4, 7, 3, 2]  # Simple valid sequence
+        ink = tokinkizer.decode(ids)
+        assert isinstance(ink, Ink)
+        assert len(ink.strokes) >= 0
+
+    def test_encode_decode_consistency(self, tokinkizer, simple_ink):
+        """Test that encode/decode are inverse operations (with Bresenham interpolation)."""
+        # First encoding
+        ids1 = tokinkizer.encode(simple_ink)
+        decoded1 = tokinkizer.decode(ids1)
+
+        # Second encoding should be stable
+        ids2 = tokinkizer.encode(decoded1)
+        decoded2 = tokinkizer.decode(ids2)
+
+        assert ids1 == ids2
+        assert decoded1 == decoded2
+
+    def test_encode_empty_ink(self, tokinkizer):
+        """Test encoding empty ink."""
+        empty_ink = Ink[int](strokes=[])
+        ids = tokinkizer.encode(empty_ink)
+        assert ids == [1, 2]  # Just BOS and EOS
+
+    def test_decode_empty_sequence(self, tokinkizer):
+        """Test decoding sequence with only BOS and EOS."""
+        ids = [1, 2]
+        ink = tokinkizer.decode(ids)
+        assert len(ink.strokes) == 0
+
+    def test_convert_tokens_to_ids_invalid_token(self, tokinkizer):
+        """Test that converting invalid token raises ValueError."""
+        with pytest.raises(ValueError, match="not found in vocabulary"):
+            tokinkizer.convert_tokens_to_ids(["[BOS]", "[INVALID]"])
+
+    def test_convert_ids_to_tokens_invalid_id(self, tokinkizer):
+        """Test that converting invalid ID raises ValueError."""
+        with pytest.raises(ValueError, match="not found in vocabulary"):
+            tokinkizer.convert_ids_to_tokens([1, 999999])
+
+    def test_encode_decode_multiple_strokes(self, tokinkizer):
+        """Test encode/decode with multiple strokes."""
+        ink = Ink[int](
+            strokes=[
+                Stroke[int](points=[Point[int](x=0, y=0), Point[int](x=1, y=0)]),
+                Stroke[int](points=[Point[int](x=2, y=2), Point[int](x=3, y=3)]),
+                Stroke[int](points=[Point[int](x=5, y=5)]),
+            ]
+        )
+        ids = tokinkizer.encode(ink)
+        decoded = tokinkizer.decode(ids)
+
+        # Should have same number of strokes
+        assert len(decoded.strokes) == 3
+
+        # Double encoding should be stable
+        ids2 = tokinkizer.encode(decoded)
+        assert ids == ids2
+
+    def test_token_id_bidirectional_conversion(self, tokinkizer):
+        """Test all special tokens can be converted to IDs and back."""
+        special_tokens = ["[BOS]", "[EOS]", "[UP]", "[DOWN]"]
+        for token in special_tokens:
+            id = tokinkizer.token_to_id(token)
+            recovered_token = tokinkizer.id_to_token(id)
+            assert recovered_token == token
