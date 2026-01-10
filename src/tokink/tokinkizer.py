@@ -26,6 +26,7 @@ class Tokinkizer:
         (1, -1): "[↘]",
     }
     _TOKEN_TO_COORD = {v: k for k, v in _COORD_TO_TOKEN.items()}
+    _ARROWS = "↑↓←→↖↗↙↘"
 
     def __init__(self, vocab: dict[str, int], merges: list[tuple[str, str]]):
         self._vocab = vocab
@@ -146,9 +147,7 @@ class Tokinkizer:
         return self._merge_tokens([self._BOS, *tokens, self._EOS])
 
     def _is_move_token(self, token: str) -> bool:
-        if not all(arrow in "↑↓←→↖↗↙↘" for arrow in self._strip_token(token)):
-            return False
-        return True
+        return all(arrow in self._ARROWS for arrow in self._strip_token(token))
 
     def _token_to_points(self, token: str) -> list[Point[int]]:
         if not self._is_move_token(token):
@@ -236,15 +235,3 @@ class Tokinkizer:
     def decode(self, ids: list[int]) -> Ink[int]:
         tokens = self.convert_ids_to_tokens(ids)
         return self.detokenize(tokens)
-
-
-if __name__ == "__main__":
-    tokinkizer = Tokinkizer.from_pretrained(vocab_size=10000)
-    ink = Ink.example()
-    ink = Ink.load_test()
-    ink.plot()
-
-    ids = tokinkizer.encode(ink)
-    ink = tokinkizer.decode(ids)
-    ink.plot()
-    print(ink)
