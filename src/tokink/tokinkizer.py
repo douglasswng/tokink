@@ -10,12 +10,12 @@ from tokink.ink import Ink, Point, Stroke
 
 
 class Tokinkizer:
-    BOS = "[BOS]"
-    EOS = "[EOS]"
-    UP = "[UP]"
-    DOWN = "[DOWN]"
+    _BOS = "[BOS]"
+    _EOS = "[EOS]"
+    _UP = "[UP]"
+    _DOWN = "[DOWN]"
 
-    COORD_TO_TOKEN = {
+    _COORD_TO_TOKEN = {
         (0, 1): "[↑]",
         (0, -1): "[↓]",
         (-1, 0): "[←]",
@@ -25,15 +25,19 @@ class Tokinkizer:
         (-1, -1): "[↙]",
         (1, -1): "[↘]",
     }
-    TOKEN_TO_COORD = {v: k for k, v in COORD_TO_TOKEN.items()}
+    _TOKEN_TO_COORD = {v: k for k, v in _COORD_TO_TOKEN.items()}
 
     def __init__(self, vocab: dict[str, int], merges: list[tuple[str, str]]):
         self._vocab = vocab
+        self._merges = merges
+
         self._reverse_vocab = {v: k for k, v in vocab.items()}
         self._bpe = self._init_bpe(vocab, merges)
 
     @classmethod
-    def from_pretrained(cls, path: Path | str | None = None) -> Self:
+    def from_pretrained(
+        cls, path: Path | str | None = None, *, vocab_size: int | None = None
+    ) -> Self:
         if path is None:
             path = Path(__file__).parent / "data"
 
@@ -52,6 +56,16 @@ class Tokinkizer:
                     )
 
                 merges.append((parts[0], parts[1]))
+
+        if vocab_size is None:
+            return cls(vocab=vocab, merges=merges)
+
+        if (reduce_count := len(vocab) - vocab_size) < 0:
+            raise ValueError(f"Target vocab size {vocab_size} larger than train size {len(vocab)}")
+
+        if reduce_count > 0:
+            vocab = {k: v for i, (k, v) in enumerate(vocab.items()) if i < vocab_size}
+            merges = merges[:-reduce_count]
         return cls(vocab=vocab, merges=merges)
 
     def _init_bpe(self, vocab: dict[str, int], merges: list[tuple[str, str]]) -> BPE:
@@ -60,23 +74,18 @@ class Tokinkizer:
             for token, id in vocab.items()
             if self._is_move_token(token)
         }
-        hf_merges = [
-            (self._strip_token(merge[0]), self._strip_token(merge[1]))
-            for merge in merges
-        ]
+        hf_merges = [(self._strip_token(merge[0]), self._strip_token(merge[1])) for merge in merges]
         return BPE(vocab=hf_vocab, merges=hf_merges)
 
     def _strip_token(self, token: str) -> str:
         if not token.startswith("[") or not token.endswith("]"):
-            raise ValueError(
-                f"Token must start with '[' and end with ']', got: {token}"
-            )
+            raise ValueError(f"Token must start with '[' and end with ']', got: {token}")
         return token[1:-1]
 
     def _wrap_token(self, token: str) -> str:
         return f"[{token}]"
 
-    def _bres_line(self, x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
+    def _bresenham_line(self, x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
         if not all(isinstance(v, int) for v in (x0, y0, x1, y1)):
             raise TypeError(
                 f"All coordinates must be integers, got {x0}, {y0}, {x1}, {y1} instead."
@@ -103,11 +112,11 @@ class Tokinkizer:
         return coords
 
     def _point_to_tokens(self, point: Point[int]) -> list[str]:
-        bres_line = self._bres_line(0, 0, point.x, point.y)
+        bres_line = self._bresenham_line(0, 0, point.x, point.y)
         tokens: list[str] = []
         for p1, p2 in zip(bres_line, bres_line[1:]):
             coord = (p2[0] - p1[0], p2[1] - p1[1])
-            tokens.append(self.COORD_TO_TOKEN[coord])
+            tokens.append(self._COORD_TO_TOKEN[coord])
         return tokens
 
     def _merge_move_tokens(self, tokens: list[str]) -> list[str]:
@@ -132,9 +141,9 @@ class Tokinkizer:
                 tokens.extend(self._point_to_tokens(delta))
                 prev_point = point
                 if i == 0:
-                    tokens.append(self.DOWN)
-            tokens.append(self.UP)
-        return self._merge_tokens([self.BOS, *tokens, self.EOS])
+                    tokens.append(self._DOWN)
+            tokens.append(self._UP)
+        return self._merge_tokens([self._BOS, *tokens, self._EOS])
 
     def _is_move_token(self, token: str) -> bool:
         if not all(arrow in "↑↓←→↖↗↙↘" for arrow in self._strip_token(token)):
@@ -145,64 +154,62 @@ class Tokinkizer:
         if not self._is_move_token(token):
             raise ValueError(f"Invalid move token: {token}, expected format: '[↑↖←]'")
 
-        coords = [
-            self.TOKEN_TO_COORD[f"[{arrow}]"] for arrow in self._strip_token(token)
-        ]
+        coords = [self._TOKEN_TO_COORD[f"[{arrow}]"] for arrow in self._strip_token(token)]
+        points = []
         curr_point = Point(x=0, y=0)
-        points = [curr_point]
         for coord in coords:
             curr_point += Point(x=coord[0], y=coord[1])
             points.append(curr_point)
         return points
 
     def detokenize(self, tokens: list[str]) -> Ink[int]:
-        try:
-            start = next(i for i, t in enumerate(tokens) if t == self.BOS)
-            tokens = tokens[start + 1 :]
-        except StopIteration:
+        if not tokens:
+            raise ValueError("No tokens provided")
+
+        if tokens[0] == self._BOS:
+            tokens = tokens[1:]
+        else:
             warnings.warn(
-                f"No {self.BOS} token found. This may lead to unexpected results.",
+                f"First token {tokens[0]} is not {self._BOS}. Ignoring...",
                 UserWarning,
                 stacklevel=2,
             )
 
-        try:
-            end = next(i for i, t in enumerate(tokens) if t == self.EOS)
-            tokens = tokens[:end]
-        except StopIteration:
-            warnings.warn(
-                f"No {self.EOS} token found. This may lead to unexpected results.",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        curr_state = None
+        curr_state = self._UP
         curr_point = Point(x=0, y=0)
         curr_stroke = Stroke(points=[])
         ink = Ink(strokes=[])
         for token in tokens:
             match token:
-                case self.BOS | self.EOS:
+                case self._BOS:
                     warnings.warn(
                         f"Unexpected token: {token}. Ignoring...",
                         UserWarning,
                         stacklevel=2,
                     )
-                    continue
-                case self.DOWN:
-                    curr_state = self.DOWN
-                case self.UP:
-                    curr_state = self.UP
+                case self._EOS:
+                    return ink
+                case self._DOWN:
+                    curr_state = self._DOWN
+                    curr_stroke.points.append(curr_point)
+                case self._UP:
+                    curr_state = self._UP
                     if curr_stroke.points:
                         ink.strokes.append(curr_stroke)
                         curr_stroke = Stroke(points=[])
+                    else:
+                        warnings.warn(
+                            "No points in stroke. This may lead to unexpected results.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
                 case _:  # Should be a move token like "[↑←←↓]"
                     if not self._is_move_token(token):
                         raise ValueError(f"Unexpected token: {token}")
 
                     points = [p + curr_point for p in self._token_to_points(token)]
                     curr_point = points[-1]
-                    if curr_state == self.DOWN:
+                    if curr_state == self._DOWN:
                         curr_stroke.points.extend(points)
         return ink
 
@@ -229,3 +236,15 @@ class Tokinkizer:
     def decode(self, ids: list[int]) -> Ink[int]:
         tokens = self.convert_ids_to_tokens(ids)
         return self.detokenize(tokens)
+
+
+if __name__ == "__main__":
+    tokinkizer = Tokinkizer.from_pretrained(vocab_size=10000)
+    ink = Ink.example()
+    ink = Ink.load_test()
+    ink.plot()
+
+    ids = tokinkizer.encode(ink)
+    ink = tokinkizer.decode(ids)
+    ink.plot()
+    print(ink)
