@@ -1,5 +1,5 @@
 import json
-import warnings
+from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
 from typing import Self
@@ -7,6 +7,7 @@ from typing import Self
 from tokenizers.models import BPE
 
 from tokink.ink import Ink, Point, Stroke
+from tokink.utils import warn
 
 
 class Tokinkizer:
@@ -36,6 +37,7 @@ class Tokinkizer:
         self._bpe = self._init_bpe(vocab, merges)
 
     @classmethod
+    @lru_cache(maxsize=1)
     def from_pretrained(
         cls, path: Path | str | None = None, *, vocab_size: int | None = None
     ) -> Self:
@@ -168,11 +170,7 @@ class Tokinkizer:
         if tokens[0] == self._BOS:
             tokens = tokens[1:]
         else:
-            warnings.warn(
-                f"First token {tokens[0]} is not {self._BOS}. Ignoring...",
-                UserWarning,
-                stacklevel=2,
-            )
+            warn(f"First token {tokens[0]} is not {self._BOS}. Ignoring...")
 
         curr_state = self._UP
         curr_point = Point(x=0, y=0)
@@ -181,11 +179,7 @@ class Tokinkizer:
         for token in tokens:
             match token:
                 case self._BOS:
-                    warnings.warn(
-                        f"Unexpected token: {token}. Ignoring...",
-                        UserWarning,
-                        stacklevel=2,
-                    )
+                    warn(f"Unexpected token: {token}. Ignoring...")
                 case self._EOS:
                     return ink
                 case self._DOWN:
@@ -197,11 +191,7 @@ class Tokinkizer:
                         ink.strokes.append(curr_stroke)
                         curr_stroke = Stroke(points=[])
                     else:
-                        warnings.warn(
-                            "No points in stroke. This may lead to unexpected results.",
-                            UserWarning,
-                            stacklevel=2,
-                        )
+                        warn("No points in stroke. This may lead to unexpected results.")
                 case _:  # Should be a move token like "[↑←←↓]"
                     if not self._is_move_token(token):
                         raise ValueError(f"Unexpected token: {token}")

@@ -9,6 +9,8 @@
         "PYTHONPATH": "${workspaceFolder}/src"
     },
     "files.exclude": {
-        "**/py.typed": true
+        "**/py.typed": true,
+        "**/.python-version": true,
+        "**/uv.lock": true
     }
 }

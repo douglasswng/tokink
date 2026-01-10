@@ -47,7 +47,7 @@ class Ink[T: (int, float)](BaseModel):
 
     @classmethod
     def load_test(cls) -> "Ink[int]":
-        raw_strokes = [[(0, 0), (1, 0)], [(2, 1), (4, -1)], [(10, 10)]]
+        raw_strokes = [[(0, 0), (1, 0)], [(2, 1), (4, -1)], [(5, 5)]]
         strokes: list[Stroke[int]] = [
             Stroke[int](points=[Point[int](x=x, y=y) for x, y in stroke]) for stroke in raw_strokes
         ]
