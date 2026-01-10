@@ -1,13 +1,25 @@
 from pathlib import Path
-from typing import Self
+from typing import Self, Type
 
 import matplotlib.pyplot as plt
 from pydantic import BaseModel
+
+type Coord[T: (int, float)] = tuple[T, T] | list[T]
 
 
 class Point[T: (int, float)](BaseModel):
     x: T
     y: T
+
+    @classmethod
+    def from_coords[U: (int, float)](cls: Type, coords: Coord[U]) -> "Point[U]":
+        match coords:
+            case (x, y):
+                return cls(x=x, y=y)
+            case [x, y]:
+                return cls(x=x, y=y)
+            case _:
+                raise ValueError(f"Invalid coordinates: {coords}")
 
     def __str__(self) -> str:
         return f"({self.x}, {self.y})"
@@ -22,6 +34,11 @@ class Point[T: (int, float)](BaseModel):
 class Stroke[T: (int, float)](BaseModel):
     points: list[Point[T]]
 
+    @classmethod
+    def from_coords[U: (int, float)](cls: Type, coords: list[Coord[U]]) -> "Stroke[U]":
+        points = [Point.from_coords(coord) for coord in coords]
+        return cls(points=points)
+
     def __str__(self) -> str:
         points_str = " → ".join(str(point) for point in self.points)
         return points_str
@@ -29,6 +46,20 @@ class Stroke[T: (int, float)](BaseModel):
 
 class Ink[T: (int, float)](BaseModel):
     strokes: list[Stroke[T]]
+
+    @classmethod
+    def from_coords[U: (int, float)](
+        cls: Type,
+        coords: list[list[Coord[U]]],
+    ) -> "Ink[U]":
+        strokes = [Stroke.from_coords(stroke_coords) for stroke_coords in coords]
+        return cls(strokes=strokes)
+
+    @classmethod
+    def example(cls) -> Self:
+        example_path = Path(__file__).parent / "data" / "ink_example.json"
+        with open(example_path, "r") as f:
+            return cls.model_validate_json(f.read())
 
     def __str__(self) -> str:
         line = "-" * 100
@@ -38,20 +69,6 @@ class Ink[T: (int, float)](BaseModel):
         )
         strokes_str += f"\n{line}"
         return strokes_str
-
-    @classmethod
-    def example(cls) -> Self:
-        example_path = Path(__file__).parent / "data" / "ink_example.json"
-        with open(example_path, "r") as f:
-            return cls.model_validate_json(f.read())
-
-    @classmethod
-    def load_test(cls) -> "Ink[int]":
-        raw_strokes = [[(0, 0), (1, 0)], [(2, 1), (4, -1)], [(5, 5)]]
-        strokes: list[Stroke[int]] = [
-            Stroke[int](points=[Point[int](x=x, y=y) for x, y in stroke]) for stroke in raw_strokes
-        ]
-        return Ink[int](strokes=strokes)
 
     def plot(self) -> None:
         ax = plt.subplots(figsize=(12, 8))[1]
