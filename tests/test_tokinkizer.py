@@ -49,7 +49,7 @@ class TestTokinkizer:
     def test_encode_output(self, tokinkizer, simple_ink):
         """Test that encoding produces the expected IDs for the test ink."""
         ids = tokinkizer.encode(simple_ink)
-        print(ids)
+
         # Note: These IDs correspond to the Bresenham-interpolated version
         expected_ids = [1, 4, 7, 3, 10, 4, 15, 3, 2704, 4, 3, 2]
         assert ids == expected_ids
@@ -58,8 +58,6 @@ class TestTokinkizer:
         """Test that decoding produces the expected ink with Bresenham interpolation."""
         ids = [1, 4, 7, 3, 10, 4, 15, 3, 2704, 4, 3, 2]
         decoded_ink = tokinkizer.decode(ids)
-        print(ids)
-        print(decoded_ink)
 
         # Expected decoded ink includes Bresenham interpolation: (2,1) → (3,0) → (4,-1)
         expected_strokes = [[(0, 0), (1, 0)], [(2, 1), (3, 0), (4, -1)], [(5, 5)]]
