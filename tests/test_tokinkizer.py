@@ -13,7 +13,7 @@ class TestTokinkizer:
     @pytest.fixture
     def simple_ink(self):
         """Create a simple test ink sample with Bresenham interpolation.
-        
+
         Note: stroke2 goes from (2,1) to (4,-1), which will be interpolated
         to include (3,0) by the Bresenham line algorithm.
         """
@@ -33,13 +33,13 @@ class TestTokinkizer:
 
     def test_encode_decode_roundtrip(self, tokinkizer, simple_ink):
         """Test that double round-trip encoding/decoding is stable.
-        
+
         Due to Bresenham interpolation, the first decode may add points,
         but subsequent round-trips should be identical.
         """
         ids = tokinkizer.encode(simple_ink)
         decoded_ink = tokinkizer.decode(ids)
-        
+
         # Double round-trip should be stable
         ids2 = tokinkizer.encode(decoded_ink)
         decoded_ink2 = tokinkizer.decode(ids2)
@@ -60,17 +60,15 @@ class TestTokinkizer:
         decoded_ink = tokinkizer.decode(ids)
         print(ids)
         print(decoded_ink)
-        
+
         # Expected decoded ink includes Bresenham interpolation: (2,1) → (3,0) → (4,-1)
-        expected_strokes = [
-            [(0, 0), (1, 0)],
-            [(2, 1), (3, 0), (4, -1)],
-            [(5, 5)]
-        ]
-        expected_ink = Ink[int](strokes=[
-            Stroke[int](points=[Point[int](x=x, y=y) for x, y in stroke])
-            for stroke in expected_strokes
-        ])
+        expected_strokes = [[(0, 0), (1, 0)], [(2, 1), (3, 0), (4, -1)], [(5, 5)]]
+        expected_ink = Ink[int](
+            strokes=[
+                Stroke[int](points=[Point[int](x=x, y=y) for x, y in stroke])
+                for stroke in expected_strokes
+            ]
+        )
         assert decoded_ink == expected_ink
 
     def test_tokenize(self, tokinkizer, simple_ink):
@@ -85,7 +83,7 @@ class TestTokinkizer:
         """Test that double tokenization round-trip is stable."""
         tokens = tokinkizer.tokenize(simple_ink)
         detokenized_ink = tokinkizer.detokenize(tokens)
-        
+
         # Double tokenization should be stable
         tokens2 = tokinkizer.tokenize(detokenized_ink)
         detokenized_ink2 = tokinkizer.detokenize(tokens2)
@@ -123,25 +121,23 @@ class TestTokinkizer:
         ids = tokinkizer.encode(ink)
         decoded_ink = tokinkizer.decode(ids)
         assert decoded_ink == ink
-    
+
     def test_bresenham_interpolation(self, tokinkizer):
         """Test that Bresenham interpolation adds intermediate points between endpoints."""
         # Diagonal line from (0,0) to (3,2) requires interpolation
-        ink = Ink[int](strokes=[
-            Stroke[int](points=[Point[int](x=0, y=0), Point[int](x=3, y=2)])
-        ])
-        
+        ink = Ink[int](strokes=[Stroke[int](points=[Point[int](x=0, y=0), Point[int](x=3, y=2)])])
+
         ids = tokinkizer.encode(ink)
         decoded_ink = tokinkizer.decode(ids)
-        
+
         # Bresenham should add intermediate points
         assert len(decoded_ink.strokes) == 1
         assert len(decoded_ink.strokes[0].points) > 2  # More than the original 2 points
-        
+
         # Start and end points should be preserved
         assert decoded_ink.strokes[0].points[0] == Point[int](x=0, y=0)
         assert decoded_ink.strokes[0].points[-1] == Point[int](x=3, y=2)
-        
+
         # Double encoding should be stable
         ids2 = tokinkizer.encode(decoded_ink)
         decoded_ink2 = tokinkizer.decode(ids2)
