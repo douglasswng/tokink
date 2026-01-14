@@ -11,7 +11,7 @@ pip install tokink
 Or install from source:
 
 ```bash
-git clone https://github.com/yourusername/tokink.git
+git clone https://github.com/douglasswng/tokink.git
 cd tokink
 pip install -e .
 ```
