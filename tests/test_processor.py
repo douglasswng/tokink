@@ -2,18 +2,18 @@ import numpy as np
 import pytest
 
 from tokink.ink import Ink, Point, Stroke
-from tokink.processor import resample, scale, smooth, to_int
+from tokink.processor import jitter, resample, rotate, scale, shear, smooth, to_int
 
 
 class TestScale:
     def test_scale_default_factor(self):
-        """Test scaling with default factor (0.2)"""
-        ink = Ink.from_coords([[(10, 20), (30, 40)]])
+        """Test scaling with default factor (1/16)"""
+        ink = Ink.from_coords([[(16, 32), (48, 64)]])
         scaled = scale(ink)
-        assert scaled.strokes[0].points[0].x == 2.0
-        assert scaled.strokes[0].points[0].y == 4.0
-        assert scaled.strokes[0].points[1].x == 6.0
-        assert scaled.strokes[0].points[1].y == 8.0
+        assert scaled.strokes[0].points[0].x == 1
+        assert scaled.strokes[0].points[0].y == 2
+        assert scaled.strokes[0].points[1].x == 3
+        assert scaled.strokes[0].points[1].y == 4
 
     def test_scale_custom_factor(self):
         """Test scaling with custom factor"""
@@ -112,16 +112,17 @@ class TestToInt:
 
 class TestResample:
     def test_resample_default(self):
-        """Test resampling with default sample_every (3)"""
+        """Test resampling with default sample_every (2)"""
         points = [(i, i * 2) for i in range(10)]
         ink = Ink.from_coords([points])
         resampled = resample(ink)
-        # Should keep points at indices 0, 3, 6, 9.
-        assert len(resampled.strokes[0].points) == 4
+        # Should keep points at indices 0, 2, 4, 6, 8.
+        assert len(resampled.strokes[0].points) == 5
         assert resampled.strokes[0].points[0].x == 0
-        assert resampled.strokes[0].points[1].x == 3
-        assert resampled.strokes[0].points[2].x == 6
-        assert resampled.strokes[0].points[3].x == 9
+        assert resampled.strokes[0].points[1].x == 2
+        assert resampled.strokes[0].points[2].x == 4
+        assert resampled.strokes[0].points[3].x == 6
+        assert resampled.strokes[0].points[4].x == 8
 
     def test_resample_custom_interval(self):
         """Test resampling with custom interval"""
@@ -301,6 +302,95 @@ class TestSmooth:
         assert len(smoothed.strokes[0].points) == 20
 
 
+class TestJitter:
+    def test_jitter_sigma_zero(self):
+        """Test jitter with sigma=0 (no change)"""
+        ink = Ink.from_coords([[(10, 20), (30, 40)]])
+        jittered = jitter(ink, sigma=0)
+        assert jittered.strokes[0].points[0].x == 10
+        assert jittered.strokes[0].points[0].y == 20
+        assert jittered.strokes[0].points[1].x == 30
+        assert jittered.strokes[0].points[1].y == 40
+
+    def test_jitter_changes_points(self):
+        """Test that jitter actually changes coordinates"""
+        ink = Ink.from_coords([[(10, 20), (30, 40)]])
+        # Use a large sigma to ensure change.
+        jittered = jitter(ink, sigma=1.0)
+        assert jittered.strokes[0].points[0].x != 10 or jittered.strokes[0].points[0].y != 20
+        assert jittered.strokes[0].points[1].x != 30 or jittered.strokes[0].points[1].y != 40
+        assert len(jittered.strokes[0].points) == 2
+
+    def test_jitter_preserves_original(self):
+        """Test that jittering doesn't modify original ink"""
+        ink = Ink.from_coords([[(10, 20)]])
+        jitter(ink, sigma=1.0)
+        assert ink.strokes[0].points[0].x == 10
+
+    def test_jitter_multiple_strokes(self):
+        """Test jitter on multiple strokes"""
+        ink = Ink.from_coords([[(0, 0)], [(10, 10)]])
+        jittered = jitter(ink, sigma=0.5)
+        assert len(jittered.strokes) == 2
+
+
+class TestRotate:
+    def test_rotate_zero_degrees(self):
+        """Test rotation by 0 degrees"""
+        ink = Ink.from_coords([[(10, 20)]])
+        rotated = rotate(ink, 0)
+        assert pytest.approx(rotated.strokes[0].points[0].x) == 10
+        assert pytest.approx(rotated.strokes[0].points[0].y) == 20
+
+    def test_rotate_90_degrees(self):
+        """Test rotation by 90 degrees"""
+        # (10, 0) rotated 90 deg counter-clockwise should be (0, 10).
+        ink = Ink.from_coords([[(10, 0)]])
+        rotated = rotate(ink, 90)
+        assert pytest.approx(rotated.strokes[0].points[0].x) == 0
+        assert pytest.approx(rotated.strokes[0].points[0].y) == 10
+
+    def test_rotate_180_degrees(self):
+        """Test rotation by 180 degrees"""
+        # (10, 20) rotated 180 deg should be (-10, -20).
+        ink = Ink.from_coords([[(10, 20)]])
+        rotated = rotate(ink, 180)
+        assert pytest.approx(rotated.strokes[0].points[0].x) == -10
+        assert pytest.approx(rotated.strokes[0].points[0].y) == -20
+
+    def test_rotate_360_degrees(self):
+        """Test rotation by 360 degrees"""
+        ink = Ink.from_coords([[(10, 20)]])
+        rotated = rotate(ink, 360)
+        assert pytest.approx(rotated.strokes[0].points[0].x) == 10
+        assert pytest.approx(rotated.strokes[0].points[0].y) == 20
+
+
+class TestShear:
+    def test_shear_zero_factor(self):
+        """Test shear with factor 0"""
+        ink = Ink.from_coords([[(10, 20)]])
+        sheared = shear(ink, 0)
+        assert sheared.strokes[0].points[0].x == 10
+        assert sheared.strokes[0].points[0].y == 20
+
+    def test_shear_positive_factor(self):
+        """Test shear with positive factor"""
+        # (10, 20) sheared by 0.5: x = 10 + 0.5 * 20 = 20.
+        ink = Ink.from_coords([[(10, 20)]])
+        sheared = shear(ink, 0.5)
+        assert sheared.strokes[0].points[0].x == 20
+        assert sheared.strokes[0].points[0].y == 20
+
+    def test_shear_negative_factor(self):
+        """Test shear with negative factor"""
+        # (10, 20) sheared by -0.5: x = 10 - 0.5 * 20 = 0.
+        ink = Ink.from_coords([[(10, 20)]])
+        sheared = shear(ink, -0.5)
+        assert sheared.strokes[0].points[0].x == 0
+        assert sheared.strokes[0].points[0].y == 20
+
+
 class TestProcessorIntegration:
     def test_scale_then_to_int(self):
         """Test scaling followed by conversion to int"""
@@ -333,3 +423,19 @@ class TestProcessorIntegration:
 
         assert len(processed.strokes) == 1
         assert len(processed.strokes[0].points) == 15
+
+    def test_transformation_pipeline(self):
+        """Test transformation pipeline: rotate -> shear -> jitter"""
+        ink = Ink.from_coords([[(10, 0), (0, 10)]])
+
+        # Rotate 90.
+        processed = rotate(ink, 90)  # (0, 10), (-10, 0)
+        # Shear 1.0.
+        processed = shear(processed, 1.0)  # (10, 10), (-10, 0)
+        # Jitter.
+        processed = jitter(processed, sigma=0.1)
+
+        assert len(processed.strokes[0].points) == 2
+        # Check that they are roughly in the expected positions.
+        assert 9.0 < processed.strokes[0].points[0].x < 11.0
+        assert 9.0 < processed.strokes[0].points[0].y < 11.0

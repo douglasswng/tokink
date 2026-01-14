@@ -1,7 +1,7 @@
 [project]
 name = "tokink"
 version = "0.1.0"
-description = "A BPE-based tokenizer for digital ink data that converts handwriting and drawings into efficient token sequences."
+description = "A BPE tokenizer for digital ink."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
@@ -21,6 +21,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.1.0",
     "pre-commit>=4.5.1",
     "pytest>=9.0.2",
     "ruff>=0.14.11",

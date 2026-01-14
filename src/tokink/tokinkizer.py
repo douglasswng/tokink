@@ -196,7 +196,7 @@ class Tokinkizer:
                     if not self._is_move_token(token):
                         raise ValueError(f"Unexpected token: {token}")
 
-                    points = [p + curr_point for p in self._token_to_points(token)]
+                    points = [p + curr_point for p in self._token_to_points(token)[1:]]
                     curr_point = points[-1]
                     if curr_state == self._DOWN:
                         curr_stroke.points.extend(points)
@@ -542,8 +542,9 @@ class Tokinkizer:
 
         # Convert each arrow character to a relative coordinate.
         coords = [cls._ARROW_TO_COORD[arrow] for arrow in token]
-        points = []
+
         curr_point = Point(x=0, y=0)
+        points = [curr_point]
         for coord in coords:
             curr_point += Point.from_coords(coord)
             points.append(curr_point)
