@@ -5,7 +5,7 @@ from typing import Self, Type
 import matplotlib.pyplot as plt
 from pydantic import BaseModel
 
-from tokink.utils import get_timestamp, math_round
+from tokink.utils import create_axes, get_timestamp, math_round
 
 __all__ = ["Ink", "Stroke", "Point"]
 
@@ -220,13 +220,11 @@ class Ink[T: (int, float)](BaseModel):
 
     def _create_plot(self) -> None:
         """Internal helper to set up a matplotlib plot of the ink strokes."""
-        ax = plt.subplots(figsize=(12, 8))[1]
-        ax.set_aspect("equal", adjustable="box")
-        ax.invert_yaxis()
+        ax = create_axes()
 
         for stroke in self.strokes:
             x, y = zip(*((p.x, p.y) for p in stroke.points))
             if len(stroke.points) == 1:
-                ax.plot(x, y, "ko", markersize=1.5)
+                ax.plot(x, y, "ko", markersize=2.0)
             else:
-                ax.plot(x, y, "-k", linewidth=1.5)
+                ax.plot(x, y, "-k", linewidth=2.0)

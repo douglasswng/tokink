@@ -3,6 +3,7 @@ name = "tokink"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
     { name = "douglasswng", email = "douglasswng@gmail.com" }
 ]

@@ -1,9 +1,11 @@
 import re
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import pytest
+from matplotlib.figure import Figure
 
-from tokink.utils import get_timestamp, math_round, warn
+from tokink.utils import create_axes, get_timestamp, math_round, warn
 
 
 class TestMathRound:
@@ -70,3 +72,47 @@ class TestWarn:
         # (internal check that it doesn't crash).
         with pytest.warns(UserWarning):
             warn("test message", stacklevel=3)
+
+
+class TestCreateAxes:
+    def test_creates_axes(self):
+        """Test that create_ink_axes returns a matplotlib Axes object"""
+        ax = create_axes()
+        assert ax is not None
+        assert hasattr(ax, "plot")
+        plt.close()
+
+    def test_default_figsize(self):
+        """Test that default figsize is (12, 8)"""
+        ax = create_axes()
+        fig = ax.get_figure()
+        assert isinstance(fig, Figure)
+
+        assert fig.get_figwidth() == 12
+        assert fig.get_figheight() == 8
+        plt.close()
+
+    def test_custom_figsize(self):
+        """Test that custom figsize is applied"""
+        ax = create_axes(figsize=(10, 6))
+        fig = ax.get_figure()
+        assert isinstance(fig, Figure)
+
+        assert fig.get_figwidth() == 10
+        assert fig.get_figheight() == 6
+        plt.close()
+
+    def test_aspect_ratio_equal(self):
+        """Test that aspect ratio is set to equal"""
+        ax = create_axes()
+        # When aspect is "equal", get_aspect() returns 1.0
+        assert ax.get_aspect() == 1.0
+        plt.close()
+
+    def test_yaxis_inverted(self):
+        """Test that y-axis is inverted"""
+        ax = create_axes()
+        # Check if y-axis is inverted by comparing limits
+        ylim = ax.get_ylim()
+        assert ylim[0] > ylim[1]  # Top should be greater than bottom when inverted
+        plt.close()
