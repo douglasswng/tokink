@@ -37,24 +37,3 @@ def smooth(ink: Ink, window_length: int = 7, polyorder: int = 3) -> Ink:
         return Stroke(points=smoothed_points)
 
     return Ink(strokes=[smooth_stroke(stroke, window_length, polyorder) for stroke in ink.strokes])
-
-
-if __name__ == "__main__":
-    from tokink.tokinkizer import Tokinkizer
-
-    tokinkizer = Tokinkizer.from_pretrained()
-    ink = Ink.example()
-
-    ink.plot()
-    print(len(ink))
-    ink = scale(ink)
-    ink = to_int(ink)
-    tokens = tokinkizer.tokenize(ink)
-    print(len(tokens))
-    ink = tokinkizer.detokenize(tokens)
-    ink.plot()
-    ink = resample(ink)
-    ink.plot()
-    ink = smooth(ink)
-    ink.plot()
-    ink.save()

@@ -1,4 +1,5 @@
 import warnings
+from datetime import datetime
 
 
 def warn(message: str, stacklevel: int = 2) -> None:
@@ -12,6 +13,16 @@ def warn(message: str, stacklevel: int = 2) -> None:
     warnings.warn(message, UserWarning, stacklevel=stacklevel)
 
 
-def clean_round(x):
+def math_round(x):
     """Round a number to the nearest integer using traditional rounding (0.5 rounds up)."""
     return int(x + 0.5) if x > 0 else int(x - 0.5)
+
+
+def get_timestamp() -> str:
+    """
+    Generate a timestamp string in the format YYYYMMDD_HHMMSS.
+
+    Returns:
+        A timestamp string.
+    """
+    return datetime.now().strftime("%Y%m%d_%H%M%S")

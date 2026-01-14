@@ -236,27 +236,42 @@ class TestInk:
         ink = Ink(strokes=[])
         assert len(ink) == 0
 
-    def test_ink_save_with_path(self, tmp_path):
-        """Test saving ink to a specified path"""
+    def test_ink_save_plot_with_path(self, tmp_path):
+        """Test saving ink plot to a specified path"""
         matplotlib.use("Agg")  # Use non-interactive backend
 
         ink = Ink.from_coords([[(0, 0), (10, 10)]])
         save_path = tmp_path / "test_ink.png"
-        ink.save(save_path)
+        ink.save_plot(save_path)
         assert save_path.exists()
 
-    def test_ink_save_default_path(self):
+    def test_ink_save_plot_default_path(self):
         """Test saving ink with auto-generated filename"""
         matplotlib.use("Agg")  # Use non-interactive backend
 
         ink = Ink.from_coords([[(0, 0), (10, 10)]])
-        ink.save()
+        ink.save_plot()
 
-        # Check that a file was created in the package directory
-        package_dir = Path(__file__).parent.parent / "src" / "tokink"
-        png_files = list(package_dir.glob("*.png"))
+        # Check that a file was created in the current working directory
+        cwd = Path.cwd()
+        png_files = list(cwd.glob("*.png"))
         assert len(png_files) > 0
 
         # Clean up the generated file
         for png_file in png_files:
             png_file.unlink()
+
+    def test_ink_save_and_load(self, tmp_path):
+        """Test saving and loading ink as JSON"""
+        ink = Ink.from_coords([[(0, 0), (1, 1)]])
+        save_path = tmp_path / "test_ink.json"
+
+        # Test save
+        ink.save(save_path)
+        assert save_path.exists()
+
+        # Test load
+        loaded_ink = Ink.load(save_path)
+        assert len(loaded_ink.strokes) == 1
+        assert len(loaded_ink.strokes[0].points) == 2
+        assert loaded_ink.strokes[0].points[1].x == 1

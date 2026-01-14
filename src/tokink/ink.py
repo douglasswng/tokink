@@ -1,14 +1,13 @@
 from collections.abc import Sequence
-from datetime import datetime
 from pathlib import Path
 from typing import Self, Type
 
 import matplotlib.pyplot as plt
 from pydantic import BaseModel
 
-from tokink.utils import clean_round
+from tokink.utils import get_timestamp, math_round
 
-type Coord[T: (int, float)] = tuple[T, T] | list[T]
+type Coords[T: (int, float)] = tuple[T, T] | list[T]
 
 
 class Point[T: (int, float)](BaseModel):
@@ -16,7 +15,7 @@ class Point[T: (int, float)](BaseModel):
     y: T
 
     @classmethod
-    def from_coords[U: (int, float)](cls: Type, coords: Coord[U]) -> "Point[U]":
+    def from_coords[U: (int, float)](cls: Type, coords: Coords[U]) -> "Point[U]":
         match coords:
             case (x, y):
                 return cls(x=x, y=y)
@@ -38,14 +37,14 @@ class Point[T: (int, float)](BaseModel):
         return Point(x=self.x * other, y=self.y * other)
 
     def to_int(self) -> "Point[int]":
-        return Point(x=clean_round(self.x), y=clean_round(self.y))
+        return Point(x=math_round(self.x), y=math_round(self.y))
 
 
 class Stroke[T: (int, float)](BaseModel):
     points: list[Point[T]]
 
     @classmethod
-    def from_coords[U: (int, float)](cls: Type, coords: Sequence[Coord[U]]) -> "Stroke[U]":
+    def from_coords[U: (int, float)](cls: Type, coords: Sequence[Coords[U]]) -> "Stroke[U]":
         points = [Point.from_coords(coord) for coord in coords]
         return cls(points=points)
 
@@ -69,10 +68,20 @@ class Ink[T: (int, float)](BaseModel):
     @classmethod
     def from_coords[U: (int, float)](
         cls: Type,
-        coords: Sequence[Sequence[Coord[U]]],
+        coords: Sequence[Sequence[Coords[U]]],
     ) -> "Ink[U]":
         strokes = [Stroke.from_coords(stroke_coords) for stroke_coords in coords]
         return cls(strokes=strokes)
+
+    @classmethod
+    def load(cls, path: Path | str) -> Self:
+        """Load ink strokes from a JSON file.
+
+        Args:
+            path: Path to the JSON file to load.
+        """
+        with open(path, "r") as f:
+            return cls.model_validate_json(f.read())
 
     @classmethod
     def example(cls) -> Self:
@@ -98,6 +107,39 @@ class Ink[T: (int, float)](BaseModel):
     def to_int(self) -> "Ink[int]":
         return Ink(strokes=[stroke.to_int() for stroke in self.strokes])
 
+    def save(self, save_path: Path | str | None = None) -> None:
+        """Save the ink strokes as a JSON file.
+
+        Args:
+            save_path: Path where the JSON should be saved. If None, generates a timestamped
+                      filename in the current working directory.
+        """
+        save_path = Path(save_path or Path.cwd() / f"{get_timestamp()}.json")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(save_path, "w") as f:
+            f.write(self.model_dump_json(indent=2))
+
+    def save_plot(self, save_path: Path | str | None = None) -> None:
+        """Save the ink strokes as an image file.
+
+        Args:
+            save_path: Path where the image should be saved. If None, generates a timestamped
+                      filename in the current working directory.
+        """
+        self._create_plot()
+
+        save_path = Path(save_path or Path.cwd() / f"{get_timestamp()}.png")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        plt.savefig(save_path)
+        plt.close()
+
+    def plot(self) -> None:
+        """Display the ink strokes in a matplotlib window."""
+        self._create_plot()
+        plt.show()
+
     def _create_plot(self) -> None:
         ax = plt.subplots(figsize=(12, 8))[1]
         ax.set_aspect("equal", adjustable="box")
@@ -109,26 +151,3 @@ class Ink[T: (int, float)](BaseModel):
                 ax.plot(x, y, "ko", markersize=1.5)
             else:
                 ax.plot(x, y, "-k", linewidth=1.5)
-
-    def plot(self) -> None:
-        """Display the ink strokes in a matplotlib window."""
-        self._create_plot()
-        plt.show()
-
-    def save(self, save_path: Path | str | None = None) -> None:
-        """Save the ink strokes as an image file.
-
-        Args:
-            save_path: Path where the image should be saved. If None, generates a timestamped
-                      filename in the package directory.
-        """
-        self._create_plot()
-
-        if save_path is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_path = Path(__file__).parent / f"{timestamp}.png"
-        else:
-            save_path = Path(save_path)
-
-        plt.savefig(save_path)
-        plt.close()
