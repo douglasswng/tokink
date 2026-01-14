@@ -13,8 +13,16 @@ def warn(message: str, stacklevel: int = 2) -> None:
     warnings.warn(message, UserWarning, stacklevel=stacklevel)
 
 
-def math_round(x):
-    """Round a number to the nearest integer using traditional rounding (0.5 rounds up)."""
+def math_round(x: float) -> int:
+    """
+    Round a number to the nearest integer using traditional rounding (0.5 rounds up).
+
+    Args:
+        x: The number to round.
+
+    Returns:
+        The rounded integer.
+    """
     return int(x + 0.5) if x > 0 else int(x - 0.5)
 
 

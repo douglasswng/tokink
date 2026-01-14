@@ -252,12 +252,12 @@ class TestInk:
         ink = Ink.from_coords([[(0, 0), (10, 10)]])
         ink.save_plot()
 
-        # Check that a file was created in the current working directory
+        # Check that a file was created in the current working directory.
         cwd = Path.cwd()
         png_files = list(cwd.glob("*.png"))
         assert len(png_files) > 0
 
-        # Clean up the generated file
+        # Clean up the generated file.
         for png_file in png_files:
             png_file.unlink()
 
@@ -266,11 +266,11 @@ class TestInk:
         ink = Ink.from_coords([[(0, 0), (1, 1)]])
         save_path = tmp_path / "test_ink.json"
 
-        # Test save
+        # Test save.
         ink.save(save_path)
         assert save_path.exists()
 
-        # Test load
+        # Test load.
         loaded_ink = Ink.load(save_path)
         assert len(loaded_ink.strokes) == 1
         assert len(loaded_ink.strokes[0].points) == 2

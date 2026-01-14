@@ -12,15 +12,24 @@ from tokenizers.trainers import BpeTrainer
 from tokink.ink import Ink, Point, Stroke
 from tokink.utils import get_timestamp, warn
 
+__all__ = ["Tokinkizer"]
+
 
 class Tokinkizer:
-    # Class constants - special tokens with brackets
+    """
+    A tokenizer for digital ink data that uses BPE on directional movements.
+
+    This tokenizer converts ink strokes into sequences of directional arrow tokens
+    and applies Byte Pair Encoding (BPE) to learn common movement patterns.
+    """
+
+    # Special tokens (with brackets)
     _BOS = "[BOS]"
     _EOS = "[EOS]"
     _UP = "[UP]"
     _DOWN = "[DOWN]"
 
-    # Arrow tokens - stored without brackets
+    # Arrow tokens (without brackets)
     _COORD_TO_ARROW = {
         (0, 1): "↑",
         (0, -1): "↓",
@@ -33,15 +42,22 @@ class Tokinkizer:
     }
     _ARROW_TO_COORD = {v: k for k, v in _COORD_TO_ARROW.items()}
 
-    # Constructor
+    # Initialization
     def __init__(self, vocab: dict[str, int], merges: list[tuple[str, str]]):
+        """
+        Initialize a Tokinkizer with vocabulary and merges.
+
+        Args:
+            vocab: A dictionary mapping tokens to IDs.
+            merges: A list of BPE merges as (token1, token2) tuples.
+        """
         self._vocab = vocab
         self._merges = merges
 
         self._reverse_vocab = {v: k for k, v in vocab.items()}
         self._bpe = self._init_bpe(vocab, merges)
 
-    # Class methods (factory methods)
+    # Factory methods
     @classmethod
     def from_pretrained(
         cls, path: Path | str | None = None, *, vocab_size: int | None = 32_000
@@ -124,43 +140,43 @@ class Tokinkizer:
             """Generate token strings from inks for BPE training."""
             for ink in inks:
                 base_tokens = cls._tokenize_base(ink)
-                # Extract only move tokens (arrow tokens) for BPE training
+                # Extract move tokens (arrows) for BPE training.
                 for is_move, group in groupby(base_tokens, cls._is_move_token):
                     if is_move:
                         yield "".join(group)
 
-        # Initialize HuggingFace tokenizer with BPE model
+        # Initialize tokenizer with BPE model.
         hf_tokenizer = Tokenizer(BPE())
         trainer = BpeTrainer(vocab_size=vocab_size, show_progress=True)
         hf_tokenizer.train_from_iterator(get_token_iterator(), trainer=trainer)
 
-        # Extract vocab and merges from trained tokenizer
+        # Extract vocab and merges from the trained model.
         tokenizer_data = json.loads(hf_tokenizer.to_str())
         hf_vocab = tokenizer_data["model"]["vocab"]
         hf_merges = tokenizer_data["model"]["merges"]
 
-        # Build the full vocabulary including special tokens (save id 0 for padding)
+        # Build the full vocabulary, reserving ID 0 for padding.
         vocab: dict[str, int] = {}
         vocab_id = 1
 
-        # Add special tokens first (these keep their brackets)
+        # Add special tokens (preserved with brackets).
         for token in [cls._BOS, cls._EOS, cls._UP, cls._DOWN]:
             vocab[token] = vocab_id
             vocab_id += 1
 
-        # Add base arrow tokens (no brackets)
+        # Add base arrow tokens (no brackets).
         for token in cls._COORD_TO_ARROW.values():
             vocab[token] = vocab_id
             vocab_id += 1
 
-        # Add BPE-learned tokens (no brackets)
+        # Add BPE-learned tokens (no brackets).
         for token in sorted(hf_vocab, key=lambda x: hf_vocab[x]):
             if token not in vocab:
                 vocab[token] = vocab_id
                 vocab_id += 1
 
-        # Convert merges from trained tokenizer
-        # HuggingFace returns merges as a list of lists of strings (e.g., [["↑", "↑"], ...])
+        # Convert merges from the trained tokenizer.
+        # Merges are returned as a list of string pairs.
         merges = [tuple(merge) for merge in hf_merges]
 
         return cls(vocab=vocab, merges=merges)
@@ -194,6 +210,15 @@ class Tokinkizer:
 
     @classmethod
     def _point_to_tokens(cls, point: Point[int]) -> list[str]:
+        """
+        Convert a relative point to a sequence of base arrow tokens.
+
+        Args:
+            point: The relative point (delta) to convert.
+
+        Returns:
+            A list of arrow tokens representing the movement.
+        """
         bres_line = cls._bresenham_line(0, 0, point.x, point.y)
         tokens: list[str] = []
         for p1, p2 in zip(bres_line, bres_line[1:]):
@@ -203,11 +228,34 @@ class Tokinkizer:
 
     @classmethod
     def _is_move_token(cls, token: str) -> bool:
-        """Check if a token is a move token (contains only arrow characters, no brackets)."""
+        """
+        Check if a token is a move token (contains only arrow characters).
+
+        Args:
+            token: The token string to check.
+
+        Returns:
+            True if the token consists only of arrow characters, False otherwise.
+        """
         return all(char in cls._ARROW_TO_COORD.keys() for char in token)
 
     @staticmethod
     def _bresenham_line(x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
+        """
+        Generate coordinates along a straight line using Bresenham's algorithm.
+
+        Args:
+            x0: Starting x-coordinate.
+            y0: Starting y-coordinate.
+            x1: Ending x-coordinate.
+            y1: Ending y-coordinate.
+
+        Returns:
+            A list of (x, y) coordinates along the line.
+
+        Raises:
+            TypeError: If any coordinate is not an integer.
+        """
         if not all(isinstance(v, int) for v in (x0, y0, x1, y1)):
             raise TypeError(
                 f"All coordinates must be integers, got {x0}, {y0}, {x1}, {y1} instead."
@@ -233,12 +281,33 @@ class Tokinkizer:
 
         return coords
 
-    # Public instance methods (main API)
+    # Main API
     def tokenize(self, ink: Ink[int]) -> list[str]:
+        """
+        Tokenize an ink drawing into a sequence of BPE-merged tokens.
+
+        Args:
+            ink: The ink drawing to tokenize.
+
+        Returns:
+            A list of tokens including special tokens and BPE-merged arrow tokens.
+        """
         base_tokens = self._tokenize_base(ink)
         return self._merge_tokens(base_tokens)
 
     def detokenize(self, tokens: list[str]) -> Ink[int]:
+        """
+        Convert a sequence of tokens back into an ink drawing.
+
+        Args:
+            tokens: A list of tokens to detokenize.
+
+        Returns:
+            The reconstructed Ink object.
+
+        Raises:
+            ValueError: If tokens is empty or contains unexpected move tokens.
+        """
         if not tokens:
             raise ValueError("No tokens provided")
 
@@ -267,7 +336,7 @@ class Tokinkizer:
                         curr_stroke = Stroke(points=[])
                     else:
                         warn("No points in stroke. This may lead to unexpected results.")
-                case _:  # Should be a move token like "↑←←↓"
+                case _:  # Process move tokens (e.g., "↑←←↓").
                     if not self._is_move_token(token):
                         raise ValueError(f"Unexpected token: {token}")
 
@@ -278,27 +347,87 @@ class Tokinkizer:
         return ink
 
     def encode(self, ink: Ink[int]) -> list[int]:
+        """
+        Encode an ink drawing into a sequence of vocabulary IDs.
+
+        Args:
+            ink: The ink drawing to encode.
+
+        Returns:
+            A list of integer vocabulary IDs.
+        """
         tokens = self.tokenize(ink)
         return self.convert_tokens_to_ids(tokens)
 
     def decode(self, ids: list[int]) -> Ink[int]:
+        """
+        Decode a sequence of vocabulary IDs back into an ink drawing.
+
+        Args:
+            ids: A list of integer vocabulary IDs to decode.
+
+        Returns:
+            The reconstructed Ink object.
+        """
         tokens = self.convert_ids_to_tokens(ids)
         return self.detokenize(tokens)
 
     def token_to_id(self, token: str) -> int:
+        """
+        Look up the ID for a given token.
+
+        Args:
+            token: The token string to look up.
+
+        Returns:
+            The corresponding vocabulary ID.
+
+        Raises:
+            ValueError: If the token is not in the vocabulary.
+        """
         if token not in self._vocab:
             raise ValueError(f"Token '{token}' not found in vocabulary")
         return self._vocab[token]
 
     def id_to_token(self, id: int) -> str:
+        """
+        Look up the token string for a given ID.
+
+        Args:
+            id: The integer ID to look up.
+
+        Returns:
+            The corresponding token string.
+
+        Raises:
+            ValueError: If the ID is not in the vocabulary.
+        """
         if id not in self._reverse_vocab:
             raise ValueError(f"ID {id} not found in vocabulary")
         return self._reverse_vocab[id]
 
     def convert_tokens_to_ids(self, tokens: list[str]) -> list[int]:
+        """
+        Convert a list of tokens to their corresponding IDs.
+
+        Args:
+            tokens: A list of token strings.
+
+        Returns:
+            A list of integer IDs.
+        """
         return [self.token_to_id(token) for token in tokens]
 
     def convert_ids_to_tokens(self, ids: list[int]) -> list[str]:
+        """
+        Convert a list of IDs to their corresponding token strings.
+
+        Args:
+            ids: A list of integer IDs.
+
+        Returns:
+            A list of token strings.
+        """
         return [self.id_to_token(id) for id in ids]
 
     def save(self, save_path: Path | str | None = None) -> None:
@@ -314,24 +443,46 @@ class Tokinkizer:
         vocab_path = save_dir / "vocab.json"
         merges_path = save_dir / "merges.txt"
 
-        # Save vocabulary
+        # Save vocabulary.
         with open(vocab_path, "w", encoding="utf-8") as f:
             json.dump(self._vocab, f, indent=2, ensure_ascii=False)
 
-        # Save merges
+        # Save merges.
         with open(merges_path, "w", encoding="utf-8") as f:
             for merge in self._merges:
                 f.write(f"{merge[0]} {merge[1]}\n")
 
-    # Private instance methods (helpers)
+    # Helpers
     def _init_bpe(self, vocab: dict[str, int], merges: list[tuple[str, str]]) -> BPE:
-        # Filter vocab to only include move tokens (no special tokens)
+        """
+        Initialize the BPE model with the given vocabulary and merges.
+
+        Args:
+            vocab: The full vocabulary dictionary.
+            merges: The list of BPE merge tuples.
+
+        Returns:
+            A configured BPE instance.
+        """
+        # Filter vocab to include only move tokens.
         hf_vocab = {token: id for token, id in vocab.items() if self._is_move_token(token)}
-        # Merges are already in the correct format (no brackets), just need to ensure they're tuples
+        # Ensure merges are tuples and in the correct format.
         hf_merges = [tuple(merge) for merge in merges]
         return BPE(vocab=hf_vocab, merges=hf_merges)
 
     def _merge_tokens(self, tokens: list[str]) -> list[str]:
+        """
+        Apply BPE merges to a sequence of tokens.
+
+        Only move tokens (arrow tokens) are merged; special tokens like [UP],
+        [DOWN], [BOS], [EOS] are preserved as-is.
+
+        Args:
+            tokens: A sequence of base tokens.
+
+        Returns:
+            A sequence of tokens with BPE merges applied to move segments.
+        """
         merged_tokens = []
         for is_move, group in groupby(tokens, self._is_move_token):
             if is_move:
@@ -341,15 +492,36 @@ class Tokinkizer:
         return merged_tokens
 
     def _merge_move_tokens(self, tokens: list[str]) -> list[str]:
-        # Tokens are already in the correct format (no brackets for move tokens)
+        """
+        Apply BPE merges to a sequence of move tokens.
+
+        Args:
+            tokens: A sequence of move (arrow) tokens.
+
+        Returns:
+            A sequence of merged move tokens.
+        """
+        # Apply BPE to move tokens.
         hf_tokens = self._bpe.tokenize("".join(tokens))
         return [token.value for token in hf_tokens]
 
     def _token_to_points(self, token: str) -> list[Point[int]]:
+        """
+        Convert a move token back into a sequence of relative points.
+
+        Args:
+            token: A move token (possibly BPE-merged).
+
+        Returns:
+            A list of relative points.
+
+        Raises:
+            ValueError: If the token is not a valid move token.
+        """
         if not self._is_move_token(token):
             raise ValueError(f"Invalid move token: {token}, expected format: '↑↖←'")
 
-        # Each character in the token is an arrow
+        # Convert each arrow character to a relative coordinate.
         coords = [self._ARROW_TO_COORD[arrow] for arrow in token]
         points = []
         curr_point = Point(x=0, y=0)

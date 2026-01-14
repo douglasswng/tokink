@@ -34,6 +34,7 @@ class TestScale:
     def test_scale_negative_factor(self):
         """Test scaling with negative factor (flips coordinates)"""
         ink = Ink.from_coords([[(5, 10)]])
+        # (flips coordinates).
         scaled = scale(ink, factor=-1)
         assert scaled.strokes[0].points[0].x == -5
         assert scaled.strokes[0].points[0].y == -10
@@ -115,7 +116,7 @@ class TestResample:
         points = [(i, i * 2) for i in range(10)]
         ink = Ink.from_coords([points])
         resampled = resample(ink)
-        # Should keep points at indices 0, 3, 6, 9
+        # Should keep points at indices 0, 3, 6, 9.
         assert len(resampled.strokes[0].points) == 4
         assert resampled.strokes[0].points[0].x == 0
         assert resampled.strokes[0].points[1].x == 3
@@ -127,7 +128,7 @@ class TestResample:
         points = [(i, i) for i in range(10)]
         ink = Ink.from_coords([points])
         resampled = resample(ink, sample_every=2)
-        # Should keep points at indices 0, 2, 4, 6, 8
+        # Should keep points at indices 0, 2, 4, 6, 8.
         assert len(resampled.strokes[0].points) == 5
         assert resampled.strokes[0].points[0].x == 0
         assert resampled.strokes[0].points[1].x == 2
@@ -137,6 +138,7 @@ class TestResample:
         """Test resampling with sample_every=1 (no change)"""
         points = [(i, i) for i in range(5)]
         ink = Ink.from_coords([points])
+        # (no change).
         resampled = resample(ink, sample_every=1)
         assert len(resampled.strokes[0].points) == 5
 
@@ -145,7 +147,7 @@ class TestResample:
         points = [(i, i) for i in range(5)]
         ink = Ink.from_coords([points])
         resampled = resample(ink, sample_every=10)
-        # Should only keep first point
+        # Should only keep first point.
         assert len(resampled.strokes[0].points) == 1
         assert resampled.strokes[0].points[0].x == 0
 
@@ -154,8 +156,10 @@ class TestResample:
         ink = Ink.from_coords([[(i, i) for i in range(10)], [(i * 2, i * 2) for i in range(6)]])
         resampled = resample(ink, sample_every=2)
         assert len(resampled.strokes) == 2
-        assert len(resampled.strokes[0].points) == 5  # 0, 2, 4, 6, 8
-        assert len(resampled.strokes[1].points) == 3  # 0, 2, 4
+        # 0, 2, 4, 6, 8.
+        assert len(resampled.strokes[0].points) == 5
+        # 0, 2, 4.
+        assert len(resampled.strokes[1].points) == 3
 
     def test_resample_single_point_stroke(self):
         """Test resampling stroke with single point"""
@@ -176,21 +180,22 @@ class TestResample:
         ink = Ink.from_coords([points])
         original_len = len(ink.strokes[0].points)
         resample(ink, sample_every=3)
-        assert len(ink.strokes[0].points) == original_len  # Original unchanged
+        # Original unchanged.
+        assert len(ink.strokes[0].points) == original_len
 
 
 class TestSmooth:
     def test_smooth_default_parameters(self):
         """Test smoothing with default parameters"""
-        # Create a stroke with some noise
+        # Create a stroke with some noise.
         points = [(i, i + (i % 2)) for i in range(20)]
         ink = Ink.from_coords([points])
         smoothed = smooth(ink)
 
-        # Should have same number of points
+        # Should have same number of points.
         assert len(smoothed.strokes[0].points) == 20
 
-        # Smoothed values should be floats
+        # Smoothed values should be floats.
         assert isinstance(smoothed.strokes[0].points[0].x, float)
 
     def test_smooth_custom_parameters(self):
@@ -206,14 +211,14 @@ class TestSmooth:
         ink = Ink.from_coords([points])
         smoothed = smooth(ink, window_length=7, polyorder=3)
 
-        # Should return unchanged stroke
+        # Should return unchanged stroke.
         assert len(smoothed.strokes[0].points) == 5
         assert smoothed.strokes[0].points[0].x == 0
         assert smoothed.strokes[0].points[4].x == 4
 
     def test_smooth_reduces_noise(self):
         """Test that smoothing actually reduces noise"""
-        # Create a noisy signal
+        # Create a noisy signal.
         np.random.seed(42)
         x_coords = list(range(20))
         y_coords = [i + np.random.normal(0, 0.5) for i in range(20)]
@@ -222,7 +227,7 @@ class TestSmooth:
 
         smoothed = smooth(ink, window_length=7, polyorder=3)
 
-        # Calculate variance of differences (measure of noise)
+        # Calculate variance of differences (measure of noise).
         original_diffs = [
             abs(ink.strokes[0].points[i + 1].y - ink.strokes[0].points[i].y)
             for i in range(len(ink.strokes[0].points) - 1)
@@ -232,7 +237,7 @@ class TestSmooth:
             for i in range(len(smoothed.strokes[0].points) - 1)
         ]
 
-        # Smoothed should have lower variance (less noise)
+        # Smoothed should have lower variance (less noise).
         assert np.var(smoothed_diffs) < np.var(original_diffs)
 
     def test_smooth_multiple_strokes(self):
@@ -252,7 +257,7 @@ class TestSmooth:
         ink = Ink.from_coords([points])
         smoothed = smooth(ink)
 
-        # Points should be very close to original
+        # Points should be very close to original.
         for i in range(20):
             assert abs(smoothed.strokes[0].points[i].x - i) < 0.1
             assert abs(smoothed.strokes[0].points[i].y - i) < 0.1
@@ -276,7 +281,8 @@ class TestSmooth:
         ink = Ink.from_coords([points])
         original_y = ink.strokes[0].points[5].y
         smooth(ink)
-        assert ink.strokes[0].points[5].y == original_y  # Original unchanged
+        # Original unchanged.
+        assert ink.strokes[0].points[5].y == original_y
 
     def test_smooth_polyorder_less_than_window(self):
         """Test that polyorder must be less than window length"""
@@ -290,7 +296,7 @@ class TestSmooth:
         """Test smoothing with even window length (scipy handles this)"""
         points = [(i, i + (i % 2)) for i in range(20)]
         ink = Ink.from_coords([points])
-        # Even window lengths are now handled by scipy
+        # Even window lengths are now handled by scipy.
         smoothed = smooth(ink, window_length=8, polyorder=3)
         assert len(smoothed.strokes[0].points) == 20
 
@@ -308,20 +314,21 @@ class TestProcessorIntegration:
         """Test resampling followed by smoothing"""
         points = [(i, i + (i % 2)) for i in range(30)]
         ink = Ink.from_coords([points])
+        # 30 points resampled every 2.
         processed = smooth(resample(ink, sample_every=2))
-        assert len(processed.strokes[0].points) == 15  # 30 points resampled every 2
+        assert len(processed.strokes[0].points) == 15
 
     def test_full_pipeline(self):
         """Test full processing pipeline: scale -> to_int -> resample -> smooth"""
         ink = Ink.from_coords([[(i * 10, i * 10) for i in range(30)]])
 
-        # Scale down
+        # Scale down.
         processed = scale(ink, factor=0.1)
-        # Convert to int
+        # Convert to int.
         processed = to_int(processed)
-        # Resample
+        # Resample.
         processed = resample(processed, sample_every=2)
-        # Smooth
+        # Smooth.
         processed = smooth(processed)
 
         assert len(processed.strokes) == 1

@@ -47,7 +47,7 @@ class TestTokinkizer:
         """Test that encoding produces the expected IDs for the test ink."""
         ids = tokinkizer.encode(simple_ink)
 
-        # Note: These IDs correspond to the Bresenham-interpolated version
+        # Note: These IDs correspond to the Bresenham-interpolated version.
         expected_ids = [1, 4, 7, 3, 10, 4, 15, 3, 2704, 4, 3, 2]
         assert ids == expected_ids
 
@@ -56,7 +56,7 @@ class TestTokinkizer:
         ids = [1, 4, 7, 3, 10, 4, 15, 3, 2704, 4, 3, 2]
         decoded_ink = tokinkizer.decode(ids)
 
-        # Expected decoded ink includes Bresenham interpolation: (2,1) → (3,0) → (4,-1)
+        # Expected decoded ink includes Bresenham interpolation: (2,1) → (3,0) → (4,-1).
         expected_strokes = [[(0, 0), (1, 0)], [(2, 1), (3, 0), (4, -1)], [(5, 5)]]
         expected_ink = Ink[int](
             strokes=[
@@ -89,6 +89,7 @@ class TestTokinkizer:
         """Test bidirectional token-ID conversion."""
         token = "[BOS]"
         id = tokinkizer.token_to_id(token)
+        # BOS.
         assert id == 1
         assert tokinkizer.id_to_token(id) == token
 
@@ -108,6 +109,7 @@ class TestTokinkizer:
         """Test encoding empty ink produces only BOS and EOS tokens."""
         empty_ink = Ink[int](strokes=[])
         tokens = tokinkizer.tokenize(empty_ink)
+        # Just BOS and EOS.
         assert tokens == ["[BOS]", "[EOS]"]
 
     def test_single_point_stroke(self, tokinkizer):
@@ -119,21 +121,22 @@ class TestTokinkizer:
 
     def test_bresenham_interpolation(self, tokinkizer):
         """Test that Bresenham interpolation adds intermediate points between endpoints."""
-        # Diagonal line from (0,0) to (3,2) requires interpolation
+        # Diagonal line from (0,0) to (3,2) requires interpolation.
         ink = Ink[int](strokes=[Stroke[int](points=[Point[int](x=0, y=0), Point[int](x=3, y=2)])])
 
         ids = tokinkizer.encode(ink)
         decoded_ink = tokinkizer.decode(ids)
 
-        # Bresenham should add intermediate points
+        # Bresenham should add intermediate points.
         assert len(decoded_ink.strokes) == 1
-        assert len(decoded_ink.strokes[0].points) > 2  # More than the original 2 points
+        # More than the original 2 points.
+        assert len(decoded_ink.strokes[0].points) > 2
 
-        # Start and end points should be preserved
+        # Start and end points should be preserved.
         assert decoded_ink.strokes[0].points[0] == Point[int](x=0, y=0)
         assert decoded_ink.strokes[0].points[-1] == Point[int](x=3, y=2)
 
-        # Double encoding should be stable
+        # Double encoding should be stable.
         ids2 = tokinkizer.encode(decoded_ink)
         decoded_ink2 = tokinkizer.decode(ids2)
         assert decoded_ink == decoded_ink2
@@ -163,13 +166,16 @@ class TestTokinkizer:
         tokens = ["[BOS]", "→", "[EOS]"]
         ids = tokinkizer.convert_tokens_to_ids(tokens)
         assert len(ids) == 3
-        assert ids[0] == 1  # BOS
-        assert ids[2] == 2  # EOS
+        # BOS.
+        assert ids[0] == 1
+        # EOS.
+        assert ids[2] == 2
         assert all(isinstance(id, int) for id in ids)
 
     def test_convert_ids_to_tokens(self, tokinkizer):
         """Test converting list of IDs to tokens."""
-        ids = [1, 7, 2]  # BOS, some token, EOS
+        # BOS, some token, EOS.
+        ids = [1, 7, 2]
         tokens = tokinkizer.convert_ids_to_tokens(ids)
         assert len(tokens) == 3
         assert tokens[0] == "[BOS]"
@@ -189,23 +195,26 @@ class TestTokinkizer:
         assert isinstance(ids, list)
         assert all(isinstance(id, int) for id in ids)
         assert len(ids) > 0
-        assert ids[0] == 1  # Should start with BOS token ID
-        assert ids[-1] == 2  # Should end with EOS token ID
+        # Should start with BOS token ID.
+        assert ids[0] == 1
+        # Should end with EOS token ID.
+        assert ids[-1] == 2
 
     def test_decode_method(self, tokinkizer):
         """Test decode method produces Ink object."""
-        ids = [1, 4, 7, 3, 2]  # Simple valid sequence
+        # Simple valid sequence.
+        ids = [1, 4, 7, 3, 2]
         ink = tokinkizer.decode(ids)
         assert isinstance(ink, Ink)
         assert len(ink.strokes) >= 0
 
     def test_encode_decode_consistency(self, tokinkizer, simple_ink):
         """Test that encode/decode are inverse operations (with Bresenham interpolation)."""
-        # First encoding
+        # First encoding.
         ids1 = tokinkizer.encode(simple_ink)
         decoded1 = tokinkizer.decode(ids1)
 
-        # Second encoding should be stable
+        # Second encoding should be stable.
         ids2 = tokinkizer.encode(decoded1)
         decoded2 = tokinkizer.decode(ids2)
 
@@ -216,7 +225,8 @@ class TestTokinkizer:
         """Test encoding empty ink."""
         empty_ink = Ink[int](strokes=[])
         ids = tokinkizer.encode(empty_ink)
-        assert ids == [1, 2]  # Just BOS and EOS
+        # Just BOS and EOS.
+        assert ids == [1, 2]
 
     def test_decode_empty_sequence(self, tokinkizer):
         """Test decoding sequence with only BOS and EOS."""
@@ -246,10 +256,10 @@ class TestTokinkizer:
         ids = tokinkizer.encode(ink)
         decoded = tokinkizer.decode(ids)
 
-        # Should have same number of strokes
+        # Should have same number of strokes.
         assert len(decoded.strokes) == 3
 
-        # Double encoding should be stable
+        # Double encoding should be stable.
         ids2 = tokinkizer.encode(decoded)
         assert ids == ids2
 
@@ -270,38 +280,38 @@ class TestTokinkizerTrain:
             Ink.from_coords([[(0, 0), (5, 5), (10, 10)]]),
         ]
 
-        # Train with a small vocab size for testing
+        # Train with a small vocab size for testing.
         vocab_size = 50
         tokinkizer = Tokinkizer.train(iter(inks), vocab_size=vocab_size)
 
         assert isinstance(tokinkizer, Tokinkizer)
         assert len(tokinkizer._vocab) > 0
 
-        # Check for special tokens
+        # Check for special tokens.
         assert "[BOS]" in tokinkizer._vocab
         assert "[EOS]" in tokinkizer._vocab
         assert "[UP]" in tokinkizer._vocab
         assert "[DOWN]" in tokinkizer._vocab
 
-        # Check for base arrow tokens
+        # Check for base arrow tokens.
         for arrow in "↑↓←→↖↗↙↘":
             assert arrow in tokinkizer._vocab
 
     def test_train_learns_merges(self):
         """Test that training learns merges from repeating patterns."""
-        # Create ink with lots of repeating "→" (right) moves
-        # (0,0) to (100, 0) will produce 100 "→" tokens
+        # Create ink with lots of repeating "→" (right) moves.
+        # (0,0) to (100, 0) will produce 100 "→" tokens.
         inks = [Ink.from_coords([[(0, 0), (100, 0)]])] * 10
 
         tokinkizer = Tokinkizer.train(iter(inks), vocab_size=50)
 
-        # It should have learned some merges of "→"
-        # The base arrows + special tokens take up some space
-        # 4 (special) + 8 (arrows) = 12 tokens
+        # It should have learned some merges of "→".
+        # The base arrows + special tokens take up some space.
+        # 4 (special) + 8 (arrows) = 12 tokens.
         # Merges will start after these.
 
         assert len(tokinkizer._merges) > 0
-        # Check if any merge consists of "→"
+        # Check if any merge consists of "→".
         has_right_merge = any("→" in m[0] or "→" in m[1] for m in tokinkizer._merges)
         assert has_right_merge
 
@@ -314,32 +324,32 @@ class TestTokinkizerTrain:
         save_dir = tmp_path / "trained_tokinkizer"
         tokinkizer.save(save_dir)
 
-        # Load it back
+        # Load it back.
         loaded_tokinkizer = Tokinkizer.from_pretrained(save_dir, vocab_size=None)
 
         assert loaded_tokinkizer._vocab == tokinkizer._vocab
         assert loaded_tokinkizer._merges == tokinkizer._merges
 
-        # Test tokenization consistency
+        # Test tokenization consistency.
         test_ink = Ink.from_coords([[(0, 0), (5, 0)]])
         assert tokinkizer.tokenize(test_ink) == loaded_tokinkizer.tokenize(test_ink)
 
     def test_train_empty_iterator(self):
         """Test training with an empty iterator of inks."""
-        # This might fail or produce a minimal vocab depending on HF tokenizer behavior
+        # This might fail or produce a minimal vocab depending on HF tokenizer behavior.
         inks = []
         tokinkizer = Tokinkizer.train(iter(inks), vocab_size=50)
 
         assert "[BOS]" in tokinkizer._vocab
         assert "↑" in tokinkizer._vocab
-        # Should still have special and base tokens even if no data
+        # Should still have special and base tokens even if no data.
 
     def test_train_vocab_size_limit(self):
         """Test that vocab_size parameter is respected as an upper bound."""
-        # Use a very small vocab size
-        # Special tokens (4) + Base arrows (8) = 12
+        # Use a very small vocab size.
+        # Special tokens (4) + Base arrows (8) = 12.
         # If we set vocab_size=15, we should have at most 15 tokens?
-        # Actually, Tokinkizer.train adds learned tokens ON TOP of special/base tokens
+        # Actually, Tokinkizer.train adds learned tokens ON TOP of special/base tokens.
         # if they are not already there.
 
         inks = [Ink.from_coords([[(0, 0), (i, i)]]) for i in range(1, 20)]
@@ -348,8 +358,8 @@ class TestTokinkizerTrain:
         tokinkizer = Tokinkizer.train(iter(inks), vocab_size=target_hf_vocab_size)
 
         # The total vocab size will be:
-        # 4 special + 8 base + (hf learned tokens that aren't special/base)
+        # 4 special + 8 base + (hf learned tokens that aren't special/base).
         # hf_vocab will contain base arrows and merges.
 
-        # Let's just check it doesn't crash and returns something reasonable
+        # Let's just check it doesn't crash and returns something reasonable.
         assert len(tokinkizer._vocab) >= 12
