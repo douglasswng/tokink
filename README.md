@@ -84,7 +84,7 @@ For example, rendering a line from (0, 0) to (10, 4):
 Combined with special `[UP]` and `[DOWN]` tokens for pen state, we can express **any digital ink using just 10 base tokens**. The equal sign becomes:
 
 ```python
-["[DOWN]", "→", "→", "[UP]", "↙", "↙", "[DOWN]", "→", "→", "[UP]"]
+["[DOWN]", "→", "→", "[UP]", "←", "↙", "[DOWN]", "→", "→", "[UP]"]
 ```
 
 This has several benefits:
