@@ -1,7 +1,7 @@
 [project]
 name = "tokink"
 version = "0.1.0"
-description = "Add your description here"
+description = "A BPE-based tokenizer for digital ink data that converts handwriting and drawings into efficient token sequences."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
