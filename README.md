@@ -182,6 +182,42 @@ smooth_ink.plot()
 
 See [`examples/htg.py`](examples/htg.py) for the complete example.
 
+### Training Your Own Tokenizer
+
+Train a custom tokenizer on your own digital ink dataset:
+
+```python
+from tokink import Ink, Tokinkizer
+from tokink.processor import scale, to_int
+
+# Load your dataset
+dataset = [
+    Ink.from_json("sample1.json"),
+    Ink.from_json("sample2.json"),
+    # ... more ink samples
+]
+
+# Preprocess: scale down for better compression
+SCALE_FACTOR = 1 / 16
+preprocessed = (to_int(scale(ink, SCALE_FACTOR)) for ink in dataset)
+
+# Train tokenizer with custom vocabulary size
+tokenizer = Tokinkizer.train(preprocessed, vocab_size=50_000)
+
+# Save for later use
+tokenizer.save("my_tokenizer/")
+
+# Load your custom tokenizer
+custom_tokenizer = Tokinkizer.from_pretrained("my_tokenizer/")
+```
+
+**When to train your own:**
+- Your ink has unique characteristics (e.g., specific writing styles, languages, or symbols)
+- You need a different vocabulary size for your model architecture
+- You want to optimize compression for your specific use case
+
+See [`examples/train_tokenizer.py`](examples/train_tokenizer.py) for a complete example with evaluation and best practices.
+
 ## API Reference
 
 ### Core Classes
