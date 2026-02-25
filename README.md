@@ -92,9 +92,9 @@ This has several benefits:
 - **High compression**: Reduced sparsity enables effective BPE merging
 - **No OOV**: Every digital ink can be tokenized by the 10 base tokens.
 
-Example tokenization of "hello":
+Example Tokenization: Pen strokes are decomposed into unit directional steps via Bresenham's algorithm, then compressed with BPE. Each color denotes a distinct BPE token; faint colors indicate pen-in-air movement between strokes. The zoom shows the sequence of arrows making up an example token.
 
-![Hello Tokens](assets/hello_tokens.png)
+![scribe](assets/scribe.png)
 
 ## Usage Examples
 
