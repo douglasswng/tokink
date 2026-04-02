@@ -9,7 +9,7 @@ format-check:
 	make check
 
 test:
-	pytest
+	uv run pytest
 
 pre-commit:
 	make format-check

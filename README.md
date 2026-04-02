@@ -1,6 +1,6 @@
 # Tokink
 
-**Tokink** is a Byte-Pair Encoding (BPE) tokenizer designed specifically for digital ink (online handwriting). It enables a compressed and discrete representation of digital ink, improving compatibility with the transformer architecture.
+**Tokink** is the accompanying library to [ScribeTokens: Fixed-Vocabulary Tokenization of Digital Ink](https://arxiv.org/abs/2603.02805), a Byte-Pair Encoding (BPE) tokenizer designed specifically for digital ink (online handwriting). It enables a compressed and discrete representation of digital ink, improving compatibility with the transformer architecture.
 
 ## Installation
 
@@ -37,64 +37,19 @@ reconstructed_ink.plot()
 
 ## Background & Motivation
 
-Digital ink is crucial for digital note-taking applications. Two important ML tasks involve digital ink: **Handwritten Text Recognition (HTR)** and **Handwritten Text Generation (HTG)**.
+Digital ink is naturally represented as lists of strokes and points — verbose and continuous-valued, which is awkward for transformers that work best with discrete, compressed sequences. Naive discretization (one token per coordinate) leads to massive vocabularies and out-of-vocabulary problems.
 
-### Traditional Representation
-
-The natural representation of digital ink as `list[list[tuple[float, float]]]` (strokes containing points) is awkward for modern ML models. Consider drawing an equal sign:
-
-```python
-[
-    [(0.0, 0.0), (2.0, 0.0)],  # First horizontal line
-    [(0.0, 1.0), (2.0, 1.0)]   # Second horizontal line
-]
-```
-
-A common solution is the **Point-3** format: `list[(Δx, Δy, p)]`, where `p` is a binary pen state (pen down/up):
-
-```python
-[(2.0, 0.0, 1), (-2.0, 1.0, 0), (2.0, 0.0, 1)]
-```
-
-However, this representation has issues:
-- **No compression**: Every coordinate change increases sequence length by one
-- **Incompatible with transformers**: Transformers more naturally model distribution of discrete sequences
-
-### Naive Token Approach
-
-One might try rounding coordinates to integers and treating each *xy*-coordinate as a token:
-
-```python
-["[0, 0]", "[2, 0]", "[UP]", "[0, 1]", "[2, 1]"]
-```
-
-This has critical problems:
-- **Massive vocabulary**: A 1000×1000 canvas requires 1 million tokens
-- **Extreme sparsity**: Low compression with BPE
-- **Out-of-vocabulary (OOV)**: When training on a 1000×1000 canvas, "[1001, 1000]" token is not in model's vocabulary
-
-### The Tokink Solution
-
-**Tokink** uses a novel approach inspired by [Bresenham's line algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm), which rasterizes lines on pixelated displays. We break all pen movements into 8 directional arrows: `↑, ↓, ←, →, ↖, ↗, ↙, ↘`.
+**Tokink** takes a different approach inspired by [Bresenham's line algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm), which rasterizes lines on pixelated displays. We decompose all pen movements into 8 directional arrows: `↑, ↓, ←, →, ↖, ↗, ↙, ↘`.
 
 For example, rendering a line from (0, 0) to (10, 4):
 
-![Bresenham's Line](assets/bresenhams_line.png)
+![Bresenham's Line](assets/bresenham_decomposition.svg)
 
-Combined with special `[UP]` and `[DOWN]` tokens for pen state, we can express **any digital ink using just 10 base tokens**. The equal sign becomes:
-
-```python
-["[DOWN]", "→", "→", "[UP]", "←", "↙", "[DOWN]", "→", "→", "[UP]"]
-```
-
-This has several benefits:
-- **Tiny vocabulary**: Only 10 base tokens before BPE
-- **High compression**: Reduced sparsity enables effective BPE merging
-- **No OOV**: Every digital ink can be tokenized by the 10 base tokens.
+Combined with special `[UP]` and `[DOWN]` tokens for pen state, **any digital ink can be expressed using just 10 base tokens** — giving us a tiny vocabulary, high BPE compression, and zero out-of-vocabulary issues.
 
 Example Tokenization: Pen strokes are decomposed into unit directional steps via Bresenham's algorithm, then compressed with BPE. Each color denotes a distinct BPE token; faint colors indicate pen-in-air movement between strokes. The zoom shows the sequence of arrows making up an example token.
 
-![scribe](assets/scribe.png)
+![scribe](assets/scribetokens.svg)
 
 ## Usage Examples
 
